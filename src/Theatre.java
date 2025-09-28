@@ -43,8 +43,18 @@ public class Theatre {
             selectedSeats.add(seat);
             totalAmount += seat.getPrice();
         }
-        // Book all selected seats
-        selectedSeats.forEach(Seat::book);
+        // Book all selected seats atomically and thread-safely
+        List<Seat> bookedSeats = new ArrayList<>();
+        for (Seat seat : selectedSeats) {
+            if (!seat.tryBook()) {
+                // Rollback: cancel any seats already booked in this transaction
+                for (Seat booked : bookedSeats) {
+                    booked.tryCancel();
+                }
+                return null;
+            }
+            bookedSeats.add(seat);
+        }
         Booking booking = new Booking(bookings.size() + 1, user, show, selectedSeats);
         bookings.add(booking);
         // Create payment
